@@ -1,0 +1,10 @@
+# Environment & local files
+.env
+.DS_Store
+Thumbs.db
+*.log
+
+# Keep uploads folder structure
+assets/uploads/profiles/*
+!assets/uploads/profiles/.gitkeep
+!assets/uploads/.gitkeep
