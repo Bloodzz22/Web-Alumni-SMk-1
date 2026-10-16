@@ -7,15 +7,43 @@ $userId = $_SESSION['user_id'];
 $action = $_GET['action'] ?? '';
 
 // ============================================================
-// 1. CREATE POST
+// 1. CREATE POST (TikTok-Style Media, Hashtag, Tag Teman)
 // ============================================================
 if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $konten      = trim($_POST['konten'] ?? '');
     $category_id = !empty($_POST['category_id']) ? (int)$_POST['category_id'] : null;
+    $mediaPath   = null;
 
-    if ($konten !== '') {
-        $stmt = $conn->prepare("INSERT INTO posts (user_id, category_id, konten) VALUES (?, ?, ?)");
-        $stmt->bind_param('iis', $userId, $category_id, $konten);
+    // Handle Upload Media (Foto atau Video)
+    if (isset($_FILES['media']) && $_FILES['media']['error'] === UPLOAD_ERR_OK) {
+        $fileTmp  = $_FILES['media']['tmp_name'];
+        $fileName = $_FILES['media']['name'];
+        $fileSize = $_FILES['media']['size'];
+        $ext      = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        $allowedImg   = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        $allowedVideo = ['mp4', 'webm', 'mov', 'ogg', 'm4v'];
+        $allowedAll   = array_merge($allowedImg, $allowedVideo);
+
+        if (in_array($ext, $allowedAll)) {
+            $uploadDir = __DIR__ . '/../assets/uploads/posts/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            $prefix      = in_array($ext, $allowedVideo) ? 'vid_' : 'img_';
+            $newFileName = $prefix . $userId . '_' . time() . '_' . rand(100, 999) . '.' . $ext;
+            $destPath    = $uploadDir . $newFileName;
+
+            if (move_uploaded_file($fileTmp, $destPath)) {
+                $mediaPath = 'assets/uploads/posts/' . $newFileName;
+            }
+        }
+    }
+
+    if ($konten !== '' || $mediaPath !== null) {
+        $stmt = $conn->prepare("INSERT INTO posts (user_id, category_id, konten, media) VALUES (?, ?, ?, ?)");
+        $stmt->bind_param('iiss', $userId, $category_id, $konten, $mediaPath);
         $stmt->execute();
         $postId = $conn->insert_id;
 
@@ -24,7 +52,6 @@ if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $tags = array_unique($matches[1]);
             foreach ($tags as $tag) {
                 $tagClean = strtolower(trim($tag));
-                // cek atau buat hashtag
                 $st = $conn->prepare("SELECT id FROM hashtags WHERE tag = ?");
                 $st->bind_param('s', $tagClean);
                 $st->execute();
@@ -37,16 +64,71 @@ if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     $ins->execute();
                     $tagId = $conn->insert_id;
                 }
-                // link ke post
                 $link = $conn->prepare("INSERT IGNORE INTO post_hashtags (post_id, hashtag_id) VALUES (?, ?)");
                 $link->bind_param('ii', $postId, $tagId);
                 $link->execute();
             }
         }
 
-        setFlash('success', 'Postingan kamu berhasil diterbitkan!');
+        // ============================================================
+        // PROSES TAG TEMAN (Tersimpan & Otomatis Muncul di Pesan)
+        // ============================================================
+        $taggedUserIds = [];
+
+        // Dari select form "tag_users[]"
+        if (!empty($_POST['tag_users']) && is_array($_POST['tag_users'])) {
+            foreach ($_POST['tag_users'] as $tid) {
+                $tid = (int)$tid;
+                if ($tid > 0 && $tid !== $userId) {
+                    $taggedUserIds[] = $tid;
+                }
+            }
+        }
+
+        // Dari caption @username
+        if (preg_match_all('/@([a-zA-Z0-9_]+)/', $konten, $atMatches)) {
+            $usernames = array_unique($atMatches[1]);
+            foreach ($usernames as $un) {
+                $unStmt = $conn->prepare("SELECT id FROM users WHERE username = ?");
+                $unStmt->bind_param('s', $un);
+                $unStmt->execute();
+                $unRow = $unStmt->get_result()->fetch_assoc();
+                if ($unRow && (int)$unRow['id'] !== $userId) {
+                    $taggedUserIds[] = (int)$unRow['id'];
+                }
+            }
+        }
+
+        $taggedUserIds = array_unique($taggedUserIds);
+        $captionPreview = mb_substr($konten ?: 'Sebuah foto/video baru', 0, 80);
+
+        foreach ($taggedUserIds as $taggedId) {
+            // 1. Simpan ke tabel post_mentions
+            $pm = $conn->prepare("INSERT IGNORE INTO post_mentions (post_id, user_id) VALUES (?, ?)");
+            $pm->bind_param('ii', $postId, $taggedId);
+            $pm->execute();
+
+            // 2. Kirim Notifikasi
+            $notifMsg = $_SESSION['nama'] . ' menandai Anda dalam sebuah postingan: "' . $captionPreview . '..."';
+            $tipe = 'system';
+            $nIns = $conn->prepare("INSERT INTO notifications (user_id, from_user_id, tipe, pesan) VALUES (?, ?, ?, ?)");
+            $nIns->bind_param('iiss', $taggedId, $userId, $tipe, $notifMsg);
+            $nIns->execute();
+
+            // 3. Kirim Otomatis ke PESAN (Direct Message) sesuai permintaan!
+            $msgContent = "👋 Halo! Saya menandai Anda dalam sebuah postingan baru:\n\n\"" . $captionPreview . "\"\n\n🔗 Buka Beranda Feed untuk melihat postingan ini.";
+            $mIns = $conn->prepare("INSERT INTO messages (sender_id, receiver_id, isi) VALUES (?, ?, ?)");
+            $mIns->bind_param('iis', $userId, $taggedId, $msgContent);
+            $mIns->execute();
+        }
+
+        $flashMsg = 'Postingan berhasil diterbitkan!';
+        if (count($taggedUserIds) > 0) {
+            $flashMsg .= ' ' . count($taggedUserIds) . ' teman yang ditandai telah menerima pemberitahuan di Pesan.';
+        }
+        setFlash('success', $flashMsg);
     }
-    header('Location: ' . baseUrl('pages/feed.php'));
+    header('Location: ' . baseUrl('pages/feed.php#post-' . ($postId ?? '')));
     exit;
 }
 
