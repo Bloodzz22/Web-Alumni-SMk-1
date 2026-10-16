@@ -4,7 +4,7 @@
 <!-- Bottom navigation (mobile only) -->
 <nav class="bottom-nav">
   <a href="<?= baseUrl('pages/feed.php') ?>" class="<?= $currentPage==='feed'?'active':'' ?>">
-    <span class="icon">🏠</span> Feed
+    <span class="icon">🏠</span> Postingan
   </a>
   <a href="<?= baseUrl('pages/create_post.php') ?>" class="bottom-nav-fab <?= $currentPage==='create_post'?'active':'' ?>">
     <span class="icon" style="font-size:20px;">➕</span>

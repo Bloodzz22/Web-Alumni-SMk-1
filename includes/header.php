@@ -25,7 +25,7 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 
     <div class="navbar-menu">
       <?php if (isLoggedIn()): ?>
-        <a href="<?= baseUrl('pages/feed.php') ?>" class="<?= $currentPage==='feed'?'active':'' ?>">Feed</a>
+        <a href="<?= baseUrl('pages/feed.php') ?>" class="<?= $currentPage==='feed'?'active':'' ?>">Postingan</a>
         <a href="<?= baseUrl('pages/create_post.php') ?>" class="nav-post-btn <?= $currentPage==='create_post'?'active':'' ?>">➕ Posting</a>
         <a href="<?= baseUrl('pages/directory.php') ?>" class="<?= $currentPage==='directory'?'active':'' ?>">Direktori</a>
         <a href="<?= baseUrl('pages/messages.php') ?>" class="<?= $currentPage==='messages'?'active':'' ?>">Pesan</a>

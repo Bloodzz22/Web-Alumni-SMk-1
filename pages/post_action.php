@@ -189,6 +189,44 @@ if ($action === 'like') {
 }
 
 // ============================================================
+// 2b. TOGGLE BOOKMARK / SIMPAN (AJAX)
+// ============================================================
+if ($action === 'bookmark') {
+    header('Content-Type: application/json');
+    $postId = (int)($_GET['post_id'] ?? $_POST['post_id'] ?? 0);
+
+    if ($postId <= 0) {
+        echo json_encode(['success' => false, 'error' => 'Invalid Post ID']);
+        exit;
+    }
+
+    $check = $conn->prepare("SELECT id FROM bookmarks WHERE post_id = ? AND user_id = ?");
+    $check->bind_param('ii', $postId, $userId);
+    $check->execute();
+    $res = $check->get_result();
+
+    if ($res->num_rows > 0) {
+        $del = $conn->prepare("DELETE FROM bookmarks WHERE post_id = ? AND user_id = ?");
+        $del->bind_param('ii', $postId, $userId);
+        $del->execute();
+        $isBookmarked = false;
+    } else {
+        $ins = $conn->prepare("INSERT INTO bookmarks (post_id, user_id) VALUES (?, ?)");
+        $ins->bind_param('ii', $postId, $userId);
+        $ins->execute();
+        $isBookmarked = true;
+    }
+
+    $countStmt = $conn->prepare("SELECT COUNT(*) AS total FROM bookmarks WHERE post_id = ?");
+    $countStmt->bind_param('i', $postId);
+    $countStmt->execute();
+    $total = $countStmt->get_result()->fetch_assoc()['total'];
+
+    echo json_encode(['success' => true, 'bookmarked' => $isBookmarked, 'total' => $total]);
+    exit;
+}
+
+// ============================================================
 // 3. SHARE POST (AJAX / POST)
 // ============================================================
 if ($action === 'share') {

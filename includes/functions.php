@@ -70,3 +70,10 @@ function renderAvatar($name, $foto = null, $extraClass = '', $extraStyle = '') {
     }
     return '<div class="avatar ' . e($extraClass) . '" style="' . e($extraStyle) . '">' . initials($name) . '</div>';
 }
+
+function formatCount($num) {
+    $num = (int)$num;
+    if ($num >= 1000000) return round($num / 1000000, 1) . 'M';
+    if ($num >= 1000) return round($num / 1000, 1) . 'K';
+    return (string)$num;
+}
