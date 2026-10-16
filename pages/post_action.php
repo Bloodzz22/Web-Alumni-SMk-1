@@ -116,7 +116,8 @@ if ($action === 'create' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $nIns->execute();
 
             // 3. Kirim Otomatis ke PESAN (Direct Message) sesuai permintaan!
-            $msgContent = "👋 Halo! Saya menandai Anda dalam sebuah postingan baru:\n\n\"" . $captionPreview . "\"\n\n🔗 Buka Beranda Feed untuk melihat postingan ini.";
+            $postUrl = baseUrl('pages/feed.php#post-' . $postId);
+            $msgContent = "👋 Halo! Saya menandai Anda dalam sebuah postingan baru:\n\n\"" . $captionPreview . "\"\n\n🔗 Buka postingan: " . $postUrl;
             $mIns = $conn->prepare("INSERT INTO messages (sender_id, receiver_id, isi) VALUES (?, ?, ?)");
             $mIns->bind_param('iis', $userId, $taggedId, $msgContent);
             $mIns->execute();

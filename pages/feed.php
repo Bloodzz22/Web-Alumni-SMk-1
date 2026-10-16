@@ -19,19 +19,6 @@ $myInfo = $uStmt->get_result()->fetch_assoc();
 $myJurusan  = $myInfo['jurusan'] ?? 'PPLG';
 $myAngkatan = $myInfo['angkatan'] ?? '2020';
 
-// Ambil daftar teman untuk picker "Tag Teman"
-$friendsStmt = $conn->prepare("
-    SELECT u.id, u.username, p.nama, ap.profesi 
-    FROM users u 
-    LEFT JOIN profiles p ON p.user_id = u.id 
-    LEFT JOIN alumni_profiles ap ON ap.user_id = u.id
-    WHERE u.id <> ? 
-    ORDER BY p.nama ASC
-");
-$friendsStmt->bind_param('i', $userId);
-$friendsStmt->execute();
-$availableFriends = $friendsStmt->get_result()->fetch_all(MYSQLI_ASSOC);
-
 // Filter berdasarkan kategori atau hashtag jika ada
 $catFilter = isset($_GET['cat']) ? (int)$_GET['cat'] : 0;
 $tagFilter = isset($_GET['tag']) ? trim($_GET['tag']) : '';
@@ -172,6 +159,7 @@ include __DIR__ . '/../includes/header.php';
   <aside class="sidebar sidebar-left">
     <ul class="sidebar-menu">
       <li><a href="<?= baseUrl('pages/feed.php') ?>" class="<?= (!$catFilter && !$tagFilter) ? 'active' : '' ?>">🏠 Beranda Feed</a></li>
+      <li><a href="<?= baseUrl('pages/create_post.php') ?>" style="color:var(--primary); font-weight:700;">➕ Buat Postingan</a></li>
       <li><a href="<?= baseUrl('pages/directory.php') ?>">🔍 Direktori Alumni</a></li>
       <li><a href="<?= baseUrl('pages/messages.php') ?>">💬 Pesan & Chat</a></li>
       <li><a href="<?= baseUrl('pages/notifications.php') ?>">🔔 Notifikasi</a></li>
@@ -205,77 +193,17 @@ include __DIR__ . '/../includes/header.php';
   <!-- Bagian Utama Feed TikTok-Style -->
   <section style="min-width:0;">
 
-    <!-- FORM BUAT POSTINGAN (TIKTOK UPLOAD STYLE) -->
-    <div class="tiktok-create-card">
-      <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
-        <a href="<?= baseUrl('pages/profile.php') ?>">
-          <?= renderAvatar($_SESSION['nama'], $myInfo['foto'] ?? null) ?>
-        </a>
-        <div>
-          <div style="font-weight:700; color:var(--navy); font-size:14px;"><?= e($_SESSION['nama']) ?></div>
-          <div style="font-size:11px; color:var(--text-muted);">Bagikan video atau foto karya, karier, dan kegiatanmu</div>
-        </div>
-      </div>
-
-      <form method="POST" action="<?= baseUrl('pages/post_action.php?action=create') ?>" enctype="multipart/form-data">
-        <!-- Deskripsi Postingan -->
-        <div class="form-group">
-          <textarea name="konten" class="form-textarea" rows="3" 
-                    placeholder="Tulis deskripsi / caption... (bisa pakai hashtag #PPLG atau mention teman @username)" required></textarea>
-        </div>
-
-        <!-- Live Preview Media yang dipilih -->
-        <div id="mediaPreviewBox" style="display:none; margin-bottom:14px; border-radius:14px; overflow:hidden; max-height:300px; background:#000; text-align:center;">
-          <!-- injected by JS -->
-        </div>
-
-        <!-- Baris Pengaturan: Upload File, Tag Teman, Kategori -->
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-bottom:14px;">
-          
-          <!-- Upload Video / Foto -->
-          <div>
-            <label class="form-label" style="margin-bottom:4px; font-size:11px;">📹 Unggah Video / Foto</label>
-            <input type="file" name="media" id="mediaInput" accept="image/*,video/*" class="form-input" style="padding:6px 10px; font-size:12px;">
-          </div>
-
-          <!-- Kategori -->
-          <div>
-            <label class="form-label" style="margin-bottom:4px; font-size:11px;">📂 Kategori</label>
-            <select name="category_id" class="form-select" style="padding:7px 10px; font-size:12px;">
-              <option value="">Pilih Kategori (opsional)</option>
-              <?php foreach ($categories as $cat): ?>
-                <option value="<?= $cat['id'] ?>"><?= e($cat['nama_kategori']) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </div>
-
-        </div>
-
-        <!-- Tag Teman (Muncul di Pesan) -->
-        <div class="form-group">
-          <label class="form-label" style="margin-bottom:4px; font-size:11px; display:flex; justify-content:space-between;">
-            <span>🏷️ Tag Teman (Otomatis dapat pesan di inbox)</span>
-            <span style="font-weight:normal; text-transform:none; color:var(--text-muted);">Tahan Ctrl untuk pilih lebih dari 1</span>
-          </label>
-          <select name="tag_users[]" class="form-select" multiple style="height:76px; font-size:12px; padding:6px 8px;">
-            <?php foreach ($availableFriends as $fr): ?>
-              <option value="<?= $fr['id'] ?>">
-                <?= e($fr['nama'] ?? $fr['username']) ?> (@<?= e($fr['username']) ?> - <?= e($fr['profesi'] ?? 'Member') ?>)
-              </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-
-        <!-- Tombol Publish -->
-        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border); padding-top:12px;">
-          <div style="font-size:11px; color:var(--text-muted);">
-            💡 Teman yang kamu tandai akan langsung menerima link postingan ini di Pesan.
-          </div>
-          <button type="submit" class="btn btn-primary btn-sm" style="padding:8px 26px; font-size:13px;">
-            🚀 Posting Video/Foto
-          </button>
-        </div>
-      </form>
+    <!-- BAR PINTAS BUAT POSTINGAN (TERPISAH DARI FEED AGAR FEED BERSIH) -->
+    <div class="feed-create-bar">
+      <a href="<?= baseUrl('pages/profile.php') ?>" title="Profil Anda">
+        <?= renderAvatar($_SESSION['nama'], $myInfo['foto'] ?? null, 'avatar-sm') ?>
+      </a>
+      <a href="<?= baseUrl('pages/create_post.php') ?>" class="create-bar-trigger">
+        <span>✨ Apa karya atau ceritamu hari ini, <strong><?= e($_SESSION['nama']) ?></strong>? (Ketik @ untuk tag teman...)</span>
+      </a>
+      <a href="<?= baseUrl('pages/create_post.php') ?>" class="btn-create-post">
+        <span>📹 Posting</span>
+      </a>
     </div>
 
     <!-- Filter Kategori Feed Bar -->
@@ -291,8 +219,8 @@ include __DIR__ . '/../includes/header.php';
         </a>
       <?php endforeach; ?>
       <?php if ($tagFilter): ?>
-        <a href="#" class="filter-pill active">
-          #<?= e($tagFilter) ?> (Filter aktif)
+        <a href="<?= baseUrl('pages/feed.php') ?>" class="filter-pill active" title="Klik untuk hapus filter">
+          #<?= e($tagFilter) ?> ✕
         </a>
       <?php endif; ?>
     </div>
@@ -303,7 +231,10 @@ include __DIR__ . '/../includes/header.php';
         <div class="card text-center text-muted" style="padding:40px 20px;">
           <div style="font-size:40px; margin-bottom:10px;">📱</div>
           <h3 style="font-size:16px; font-weight:700; color:var(--navy);">Belum ada postingan TikTok-style</h3>
-          <p style="font-size:13px; margin-top:4px;">Jadilah orang pertama yang mengunggah video atau foto!</p>
+          <p style="font-size:13px; margin-top:4px; margin-bottom:16px;">Jadilah orang pertama yang mengunggah video atau foto!</p>
+          <a href="<?= baseUrl('pages/create_post.php') ?>" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:6px;">
+            ➕ Buat Postingan Sekarang
+          </a>
         </div>
       <?php else: ?>
         <?php foreach ($posts as $p): ?>
@@ -332,14 +263,18 @@ include __DIR__ . '/../includes/header.php';
             $caption = preg_replace('/@([a-zA-Z0-9_]+)/', '<a href="' . baseUrl('pages/directory.php?q=$1') . '">@$1</a>', $caption);
           ?>
 
-          <div class="tiktok-card" id="post-<?= $p['id'] ?>">
+          <div class="tiktok-card" id="post-<?= $p['id'] ?>" data-post-id="<?= $p['id'] ?>">
 
-            <!-- 1. Background / Media Layer -->
-            <div class="tiktok-media-box">
+            <!-- 1. Background / Media Layer (Double Tap / Click to Like) -->
+            <div class="tiktok-media-box" data-post-id="<?= $p['id'] ?>">
               <?php if ($isMediaExists && $isVideo): ?>
-                <video src="<?= $mediaUrl ?>" controls loop playsinline preload="metadata"></video>
+                <video src="<?= $mediaUrl ?>" loop playsinline preload="metadata" data-post-video="true"></video>
+                <!-- Play/Pause Indicator -->
+                <div class="tiktok-play-overlay">▶</div>
+                <!-- Sound Mute/Unmute Button -->
+                <button type="button" class="tiktok-sound-btn" onclick="toggleMuteVideo(this, event)" title="Suara Video">🔇</button>
               <?php elseif ($isMediaExists && !$isVideo): ?>
-                <img src="<?= $mediaUrl ?>" alt="Post Image">
+                <img src="<?= $mediaUrl ?>" alt="Post Image" loading="lazy">
               <?php else: ?>
                 <!-- Text-only TikTok Poster Backdrop -->
                 <div class="tiktok-text-backdrop">
@@ -366,7 +301,7 @@ include __DIR__ . '/../includes/header.php';
               <!-- Tombol Like -->
               <div class="tiktok-action-item">
                 <button class="tiktok-action-btn <?= $p['is_liked'] ? 'liked' : '' ?>" 
-                        onclick="toggleLike(<?= $p['id'] ?>, this)" title="Sukai">
+                        onclick="toggleLike(<?= $p['id'] ?>, this)" title="Sukai (Bisa juga double-click video!)">
                   ❤️
                 </button>
                 <span class="tiktok-action-count like-count"><?= $p['total_like'] ?></span>
@@ -382,7 +317,7 @@ include __DIR__ . '/../includes/header.php';
 
               <!-- Tombol Share -->
               <div class="tiktok-action-item">
-                <button class="tiktok-action-btn" onclick="sharePost(<?= $p['id'] ?>, this)" title="Bagikan">
+                <button class="tiktok-action-btn" onclick="sharePost(<?= $p['id'] ?>, this)" title="Salin & Bagikan Tautan">
                   🔗
                 </button>
                 <span class="tiktok-action-count share-count"><?= $p['total_share'] ?></span>
@@ -546,57 +481,186 @@ include __DIR__ . '/../includes/header.php';
 
 </div>
 
-<script>
-// Preview Media Live saat memilih Video atau Foto
-document.getElementById('mediaInput').addEventListener('change', function(e) {
-  const file = e.target.files[0];
-  const box = document.getElementById('mediaPreviewBox');
-  if (file) {
-    const fileType = file.type;
-    const reader = new FileReader();
-    reader.onload = function(evt) {
-      box.style.display = 'block';
-      if (fileType.startsWith('video/')) {
-        box.innerHTML = '<video src="' + evt.target.result + '" controls style="max-height:280px; width:100%; object-fit:contain;"></video>';
-      } else {
-        box.innerHTML = '<img src="' + evt.target.result + '" style="max-height:280px; width:100%; object-fit:contain;" alt="Preview">';
-      }
-    };
-    reader.readAsDataURL(file);
-  } else {
-    box.style.display = 'none';
-    box.innerHTML = '';
-  }
-});
+<!-- FLOATING ACTION BUTTON (FAB) TIKTOK-STYLE UNTUK BUAT POSTINGAN CEPAT -->
+<a href="<?= baseUrl('pages/create_post.php') ?>" class="tiktok-fab" title="Buat Postingan Baru">
+  <span class="fab-plus">➕</span>
+  <span class="fab-text">Posting</span>
+</a>
 
+<!-- TOAST NOTIFICATION CONTAINER -->
+<div id="tiktokToast" class="tiktok-toast" style="display:none;"></div>
+
+<script>
+// ============================================================
+// 1. LIKE AJAX & HEART POP ANIMATION
+// ============================================================
 function toggleLike(id, btn) {
   fetch('<?= baseUrl('pages/post_action.php?action=like&post_id=') ?>' + id, { method: 'POST' })
     .then(r => r.json())
     .then(d => {
       if (d.success) {
-        btn.classList.toggle('liked', d.liked);
-        const countSpan = btn.parentElement.querySelector('.like-count');
-        if (countSpan) countSpan.textContent = d.total;
+        if (btn) {
+          btn.classList.toggle('liked', d.liked);
+          const countSpan = btn.parentElement.querySelector('.like-count');
+          if (countSpan) countSpan.textContent = d.total;
+        }
       }
     });
 }
 
+// Double tap / Double click to like on media box
+document.querySelectorAll('.tiktok-media-box').forEach(box => {
+  let lastTap = 0;
+  
+  function triggerHeartPop(e) {
+    const postId = box.getAttribute('data-post-id');
+    const card = document.getElementById('post-' + postId);
+    if (!card) return;
+
+    // Pop animated heart
+    const heart = document.createElement('div');
+    heart.className = 'heart-pop';
+    heart.innerHTML = '❤️';
+    box.appendChild(heart);
+
+    setTimeout(() => {
+      heart.remove();
+    }, 900);
+
+    // Call like if not already liked
+    const likeBtn = card.querySelector('.tiktok-action-btn[title*="Sukai"]');
+    if (likeBtn && !likeBtn.classList.contains('liked')) {
+      toggleLike(postId, likeBtn);
+    }
+  }
+
+  // Double click for desktop
+  box.addEventListener('dblclick', function(e) {
+    triggerHeartPop(e);
+  });
+
+  // Double tap for mobile touch devices
+  box.addEventListener('touchend', function(e) {
+    const curTime = new Date().getTime();
+    const tapLen = curTime - lastTap;
+    if (tapLen < 300 && tapLen > 0) {
+      triggerHeartPop(e);
+      e.preventDefault();
+    }
+    lastTap = curTime;
+  });
+});
+
+// ============================================================
+// 2. VIDEO PLAY / PAUSE ON TAP & SMART SCROLL AUTOPLAY
+// ============================================================
+document.querySelectorAll('.tiktok-media-box video').forEach(vid => {
+  const box = vid.closest('.tiktok-media-box');
+  const indicator = box.querySelector('.tiktok-play-overlay');
+
+  vid.addEventListener('click', function(e) {
+    if (e.target.classList.contains('tiktok-sound-btn')) return;
+    if (vid.paused) {
+      vid.play();
+      if (indicator) {
+        indicator.textContent = '▶';
+        indicator.classList.add('flash');
+        setTimeout(() => indicator.classList.remove('flash'), 500);
+      }
+    } else {
+      vid.pause();
+      if (indicator) {
+        indicator.textContent = '⏸';
+        indicator.classList.add('flash');
+        setTimeout(() => indicator.classList.remove('flash'), 500);
+      }
+    }
+  });
+});
+
+function toggleMuteVideo(btn, e) {
+  e.stopPropagation();
+  const box = btn.closest('.tiktok-media-box');
+  const vid = box.querySelector('video');
+  if (vid) {
+    vid.muted = !vid.muted;
+    btn.textContent = vid.muted ? '🔇' : '🔊';
+  }
+}
+
+// Intersection Observer: Autoplay video in center, pause when out of view
+if ('IntersectionObserver' in window) {
+  const videoObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const vid = entry.target.querySelector('video');
+      if (vid) {
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.55) {
+          vid.muted = true; // muted for browser policy
+          const playPromise = vid.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(() => {});
+          }
+        } else {
+          vid.pause();
+        }
+      }
+    });
+  }, { threshold: [0.55] });
+
+  document.querySelectorAll('.tiktok-card').forEach(card => {
+    videoObserver.observe(card);
+  });
+}
+
+// ============================================================
+// 3. SHARE LINK & TOAST ALERT
+// ============================================================
+function showToast(msg) {
+  const toast = document.getElementById('tiktokToast');
+  toast.textContent = msg;
+  toast.style.display = 'block';
+  toast.classList.add('show');
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.style.display = 'none', 300);
+  }, 3000);
+}
+
 function sharePost(id, btn) {
+  const postUrl = window.location.origin + window.location.pathname + '#post-' + id;
+  
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(postUrl).then(() => {
+      showToast('✨ Tautan postingan berhasil disalin ke clipboard!');
+    }).catch(() => {
+      showToast('🔗 ' + postUrl);
+    });
+  } else {
+    showToast('✨ Tautan postingan siap dibagikan!');
+  }
+
   fetch('<?= baseUrl('pages/post_action.php?action=share&post_id=') ?>' + id, { method: 'POST' })
     .then(r => r.json())
     .then(d => { 
       if (d.success) {
         const countSpan = btn.parentElement.querySelector('.share-count');
         if (countSpan) countSpan.textContent = d.total;
-        alert('Tautan postingan berhasil dibagikan!');
       } 
     });
 }
 
+// ============================================================
+// 4. COMMENT DRAWER TOGGLE
+// ============================================================
 function toggleTiktokComments(id) {
   const drawer = document.getElementById('comment-drawer-' + id);
   if (drawer) {
-    drawer.style.display = (drawer.style.display === 'none' || drawer.style.display === '') ? 'flex' : 'none';
+    const isHidden = (drawer.style.display === 'none' || drawer.style.display === '');
+    drawer.style.display = isHidden ? 'flex' : 'none';
+    if (isHidden) {
+      const inp = drawer.querySelector('input[name="isi"]');
+      if (inp) inp.focus();
+    }
   }
 }
 </script>

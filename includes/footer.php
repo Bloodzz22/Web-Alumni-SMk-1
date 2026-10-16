@@ -6,6 +6,9 @@
   <a href="<?= baseUrl('pages/feed.php') ?>" class="<?= $currentPage==='feed'?'active':'' ?>">
     <span class="icon">🏠</span> Feed
   </a>
+  <a href="<?= baseUrl('pages/create_post.php') ?>" class="bottom-nav-fab <?= $currentPage==='create_post'?'active':'' ?>">
+    <span class="icon" style="font-size:20px;">➕</span>
+  </a>
   <a href="<?= baseUrl('pages/directory.php') ?>" class="<?= $currentPage==='directory'?'active':'' ?>">
     <span class="icon">🔍</span> Direktori
   </a>
