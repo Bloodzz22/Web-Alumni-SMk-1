@@ -559,13 +559,13 @@ include __DIR__ . '/../includes/header.php';
             <span>💼</span> Pengalaman Kerja & Karir
           </div>
           <?php if (empty($works)): ?>
-            <p style="color:#94A3B8; font-size:13.5px; margin:0;">Belum ada pengalaman kerja yang ditambahkan.</p>
+            <p style="color:var(--text-muted); font-size:13.5px; margin:0;">Belum ada pengalaman kerja yang ditambahkan.</p>
           <?php else: ?>
             <?php foreach ($works as $w): ?>
               <div class="tt-career-item">
-                <div style="font-size:15px; font-weight:700; color:#FFFFFF;"><?= e($w['posisi']) ?></div>
-                <div style="font-size:13.5px; font-weight:600; color:#38BDF8;"><?= e($w['perusahaan']) ?></div>
-                <div style="font-size:12px; color:#94A3B8; margin-top:2px;">
+                <div style="font-size:15px; font-weight:700; color:var(--navy);"><?= e($w['posisi']) ?></div>
+                <div style="font-size:13.5px; font-weight:600; color:var(--primary);"><?= e($w['perusahaan']) ?></div>
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
                   <?= e($w['tahun_mulai']) ?> - <?= $w['tahun_selesai'] ? e($w['tahun_selesai']) : 'Sekarang' ?>
                 </div>
               </div>
@@ -579,15 +579,15 @@ include __DIR__ . '/../includes/header.php';
             <span>🎓</span> Riwayat Pendidikan
           </div>
           <?php if (empty($educations)): ?>
-            <p style="color:#94A3B8; font-size:13.5px; margin:0;">Belum ada riwayat pendidikan lanjutan.</p>
+            <p style="color:var(--text-muted); font-size:13.5px; margin:0;">Belum ada riwayat pendidikan lanjutan.</p>
           <?php else: ?>
             <?php foreach ($educations as $ed): ?>
               <div class="tt-career-item">
-                <div style="font-size:15px; font-weight:700; color:#FFFFFF;"><?= e($ed['institusi']) ?></div>
-                <div style="font-size:13.5px; font-weight:600; color:#38BDF8;">
+                <div style="font-size:15px; font-weight:700; color:var(--navy);"><?= e($ed['institusi']) ?></div>
+                <div style="font-size:13.5px; font-weight:600; color:var(--primary);">
                   <?= e($ed['jenjang']) ?> <?= e($ed['jurusan']) ?>
                 </div>
-                <div style="font-size:12px; color:#94A3B8; margin-top:2px;">
+                <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
                   <?= e($ed['tahun_masuk']) ?> - <?= $ed['tahun_lulus'] ? e($ed['tahun_lulus']) : 'Sekarang' ?>
                 </div>
               </div>
