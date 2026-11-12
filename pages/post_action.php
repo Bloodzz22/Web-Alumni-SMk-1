@@ -256,11 +256,20 @@ if ($action === 'share') {
 if ($action === 'comment' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $postId = (int)($_POST['post_id'] ?? 0);
     $isi    = trim($_POST['isi'] ?? '');
+    $isAjax = (isset($_GET['ajax']) && $_GET['ajax'] == 1) || 
+              (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest');
 
     if ($postId > 0 && $isi !== '') {
         $stmt = $conn->prepare("INSERT INTO comments (post_id, user_id, isi) VALUES (?, ?, ?)");
         $stmt->bind_param('iis', $postId, $userId, $isi);
         $stmt->execute();
+        $newCommentId = $conn->insert_id;
+
+        // Hitung total komentar baru
+        $cntStmt = $conn->prepare("SELECT COUNT(*) AS total FROM comments WHERE post_id = ?");
+        $cntStmt->bind_param('i', $postId);
+        $cntStmt->execute();
+        $totalComments = $cntStmt->get_result()->fetch_assoc()['total'];
 
         // Notifikasi ke pemilik post
         $ownerQuery = $conn->prepare("SELECT user_id FROM posts WHERE id = ?");
@@ -274,7 +283,38 @@ if ($action === 'comment' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             $notif->bind_param('iiss', $owner['user_id'], $userId, $tipe, $msg);
             $notif->execute();
         }
+
+        if ($isAjax) {
+            // Ambil foto user aktif
+            $uPicStmt = $conn->prepare("SELECT foto FROM profiles WHERE user_id = ?");
+            $uPicStmt->bind_param('i', $userId);
+            $uPicStmt->execute();
+            $myPic = $uPicStmt->get_result()->fetch_assoc()['foto'] ?? null;
+
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'comment' => [
+                    'id'         => $newCommentId,
+                    'user_id'    => $userId,
+                    'nama'       => $_SESSION['nama'],
+                    'username'   => $_SESSION['username'] ?? '',
+                    'foto'       => $myPic ? baseUrl($myPic) : null,
+                    'isi'        => htmlspecialchars($isi),
+                    'created_at' => 'baru saja'
+                ],
+                'total'   => $totalComments
+            ]);
+            exit;
+        }
+
         setFlash('success', 'Komentar terkirim.');
+    } else {
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'Komentar tidak boleh kosong']);
+            exit;
+        }
     }
     $referer = $_SERVER['HTTP_REFERER'] ?? baseUrl('pages/feed.php');
     header('Location: ' . $referer);
